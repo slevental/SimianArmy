@@ -1,100 +1,159 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.netflix.simianarmy.docker;
 
+import static java.io.File.pathSeparator;
+import static java.io.File.separator;
 import static org.jclouds.compute.config.ComputeServiceProperties.TEMPLATE;
 import static org.jclouds.reflect.Reflection2.typeToken;
+
 import java.net.URI;
 import java.util.Properties;
 
+import com.google.common.base.Function;
+import com.google.inject.AbstractModule;
+import com.google.inject.TypeLiteral;
 import org.jclouds.Constants;
 import org.jclouds.apis.ApiMetadata;
+import org.jclouds.compute.ComputeServiceAdapter;
 import org.jclouds.compute.ComputeServiceContext;
+import org.jclouds.compute.config.ComputeServiceAdapterContextModule;
 import org.jclouds.compute.config.ComputeServiceProperties;
+import org.jclouds.compute.domain.*;
+import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.docker.DockerApi;
 import org.jclouds.docker.compute.config.DockerComputeServiceContextModule;
+import org.jclouds.docker.compute.config.LoginPortLookupModule;
+import org.jclouds.docker.compute.functions.ImageToImage;
+import org.jclouds.docker.compute.functions.StateToStatus;
+import org.jclouds.docker.compute.options.DockerTemplateOptions;
+import org.jclouds.docker.compute.strategy.DockerComputeServiceAdapter;
 import org.jclouds.docker.config.DockerHttpApiModule;
 import org.jclouds.docker.config.DockerParserModule;
+import org.jclouds.docker.domain.Container;
+import org.jclouds.docker.domain.Image;
+import org.jclouds.docker.domain.State;
+import org.jclouds.domain.Location;
+import org.jclouds.functions.IdentityFunction;
 import org.jclouds.rest.internal.BaseHttpApiMetadata;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 
+/**
+ * Overriding standard {@link org.jclouds.docker.DockerApiMetadata} due to issues
+ * with overriding Guice context, it's impossible to rebind any of already bind
+ * implementations, but provided implementations won't support SSH adapter correctly.
+ * <p>
+ * Metadata, by default is constructed without credentials and port to connect, this
+ * prevent SshFactory to be used;
+ */
 @AutoService(ApiMetadata.class)
 public class DockerApiMetadata extends BaseHttpApiMetadata<DockerApi> {
+    public static final String DOCKER_CA_CERT_PATH = "docker.cacert.path";
 
-   public static final String DOCKER_CA_CERT_PATH = "docker.cacert.path";
+    @Override
+    public Builder toBuilder() {
+        return new Builder().fromApiMetadata(this);
+    }
 
-   @Override
-   public Builder toBuilder() {
-      return new Builder().fromApiMetadata(this);
-   }
+    public DockerApiMetadata() {
+        this(new Builder().initialize(defaultProperties()));
+    }
 
-   public DockerApiMetadata(String certPath, String url) {
-      this(new Builder());
+    protected DockerApiMetadata(Builder builder) {
+        super(builder);
+    }
 
-   }
+    public static Properties defaultProperties() {
+        Properties properties = BaseHttpApiMetadata.defaultProperties();
+        properties.setProperty(Constants.PROPERTY_CONNECTION_TIMEOUT, "5000"); // 5 seconds
+        properties.setProperty(ComputeServiceProperties.IMAGE_LOGIN_USER, "root:password");
+        properties.setProperty(TEMPLATE, "osFamily=UBUNTU,os64Bit=true");
+        properties.setProperty(DOCKER_CA_CERT_PATH, "");
+        return properties;
+    }
 
-   protected DockerApiMetadata(Builder builder) {
-      super(builder);
-   }
+    public static class Builder extends BaseHttpApiMetadata.Builder<DockerApi, Builder> {
+        public static final URI DOCUMENTATION = URI.create("https://docs.docker.com/reference/api/docker_remote_api/");
+        public static final String VERSION = "1.21";
 
-   public static Properties defaultProperties() {
-      Properties properties = BaseHttpApiMetadata.defaultProperties();
-      properties.setProperty(Constants.PROPERTY_CONNECTION_TIMEOUT, "1200000"); // 15 minutes
-      properties.setProperty(ComputeServiceProperties.IMAGE_LOGIN_USER, "root:password");
-      properties.setProperty(TEMPLATE, "osFamily=UBUNTU,os64Bit=true");
-      properties.setProperty(DOCKER_CA_CERT_PATH, "");
-      return properties;
-   }
+        private String certPath = "./";
+        private String url;
 
-   public static class Builder extends BaseHttpApiMetadata.Builder<DockerApi, Builder> {
+        protected Builder() {
+            super(DockerApi.class);
+        }
 
-      protected Builder() {
-         super(DockerApi.class);
-         id("docker")
-                 .name("Docker API")
-                 .identityName("Path to certificate .pem file")
-                 .credentialName("Path to key .pem file")
-                 .documentation(URI.create("https://docs.docker.com/reference/api/docker_remote_api/"))
-                 .version("1.21")
-                 .defaultEndpoint("https://127.0.0.1:2376")
-                 .defaultProperties(DockerApiMetadata.defaultProperties())
-                 .view(typeToken(ComputeServiceContext.class))
-                 .defaultModules(ImmutableSet.<Class<? extends Module>>of(
-                         DockerParserModule.class,
-                         DockerHttpApiModule.class,
-                         DockerComputeServiceContextModule.class));
-      }
+        @Override
+        public DockerApiMetadata build() {
+            initialize(DockerApiMetadata.defaultProperties());
+            return new DockerApiMetadata(this);
+        }
 
-      @Override
-      public DockerApiMetadata build() {
-         return new DockerApiMetadata(this);
-      }
+        private Builder initialize(Properties props) {
+            props.put(DOCKER_CA_CERT_PATH, certPath + "ca.pem");
+            id("docker")
+                    .name("Docker API")
+                    .identityName(certPath + "server.pem")
+                    .credentialName(certPath + "server-key.pem")
+                    .documentation(DOCUMENTATION)
+                    .version(VERSION)
+                    .defaultEndpoint(url)
+                    .defaultProperties(props)
+                    .view(typeToken(ComputeServiceContext.class))
+                    .defaultModules(ImmutableSet.<Class<? extends Module>>of(
+                            DockerParserModule.class,
+                            DockerHttpApiModule.class,
+                            MetaModule.class));
+            return this;
+        }
 
-      @Override
-      protected Builder self() {
-         return this;
-      }
+        public Builder cert(String path) {
+            this.certPath = path.endsWith(separator) ? path : path + separator;
+            return this;
+        }
 
-      @Override
-      public Builder fromApiMetadata(ApiMetadata in) {
-         return this;
-      }
-   }
+        public Builder url(String url) {
+            this.url = url;
+            return this;
+        }
+
+        @Override
+        protected Builder self() {
+            return this;
+        }
+
+        @Override
+        public Builder fromApiMetadata(ApiMetadata in) {
+            return this;
+        }
+    }
+
+    /**
+     * Overriding {@link DockerComputeServiceContextModule} to override
+     * metadata mapper - current mapper doesn't allow SSH to be initialized
+     */
+    public static class MetaModule extends ComputeServiceAdapterContextModule<Container, Hardware, Image, Location> {
+        @Override
+        protected void configure() {
+            super.configure();
+
+            /**
+             * Using customized Meta mapper - which is passing fake SSH credentials and PORT
+             * to allow SSH factory call, otherwise it will be failed even if SshFactory is implemented
+             */
+            bind(new TypeLiteral<Function<Container, NodeMetadata>>() {}).to(MetaDataMapper.class);
+
+            /**
+             * Left without changes as here {@link DockerComputeServiceContextModule}
+             */
+            bind(new TypeLiteral<ComputeServiceAdapter<Container, Hardware, Image, Location>>() {}).to(DockerComputeServiceAdapter.class);
+            bind(new TypeLiteral<Function<Image, org.jclouds.compute.domain.Image>>() {}).to(ImageToImage.class);
+            bind(new TypeLiteral<Function<Hardware, Hardware>>() {}).to(Class.class.cast(IdentityFunction.class));
+            bind(new TypeLiteral<Function<Location, Location>>() {}).to(Class.class.cast(IdentityFunction.class));
+            bind(new TypeLiteral<Function<State, NodeMetadata.Status>>() {}).to(StateToStatus.class);
+            bind(TemplateOptions.class).to(DockerTemplateOptions.class);
+            install(new LoginPortLookupModule());
+        }
+    }
 }
