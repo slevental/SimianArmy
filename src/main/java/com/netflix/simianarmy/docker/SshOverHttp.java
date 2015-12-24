@@ -1,28 +1,29 @@
 package com.netflix.simianarmy.docker;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import org.jclouds.compute.domain.ExecChannel;
 import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.docker.DockerApi;
 import org.jclouds.docker.domain.Exec;
 import org.jclouds.docker.domain.ExecCreateParams;
 import org.jclouds.docker.domain.ExecInspect;
-import org.jclouds.docker.domain.ExecStartParams;
 import org.jclouds.docker.features.MiscApi;
 import org.jclouds.io.Payload;
 import org.jclouds.ssh.SshClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+
+import static org.jclouds.docker.domain.ExecStartParams.create;
 
 /**
  * Created by Stas on 12/18/15.
  */
 public class SshOverHttp implements SshClient {
+    private static final int HEADER_SIZE = 8;
+    private static final int BUFFER_SIZE = 8192;
+    private static final int STDERR = 2;
+
     private final String id;
     private final MiscApi miscApi;
 
@@ -54,7 +55,7 @@ public class SshOverHttp implements SshClient {
     @Override
     public ExecResponse exec(String command) {
         Execution execution = runInContainer(command);
-        return new ExecResponse(execution.stdout, "", execution.exitstatus);
+        return new ExecResponse(execution.stdout, execution.stderr, execution.exitstatus);
     }
 
     @Override
@@ -82,15 +83,32 @@ public class SshOverHttp implements SshClient {
     private Execution runInContainer(String command) {
         try {
             Exec exec = miscApi.execCreate(id, ExecCreateParams.builder()
-                    .cmd(ImmutableList.of("bash", "-c", command))
+                    .cmd(ImmutableList.of("sh", "-c", command))
                     .attachStdout(true)
-                    .attachStderr(false).build());
-            InputStream output = miscApi.execStart(exec.id(), ExecStartParams.create(false));
-            ByteArrayOutputStream buff = new ByteArrayOutputStream();
-            output.read(new byte[8]);
-            ByteStreams.copy(output, buff);
-            ExecInspect insp = miscApi.execInspect(exec.id());
-            return new Execution(insp.exitCode(), buff.toString("UTF-8"));
+                    .attachStderr(false)
+                    .build());
+
+            byte[] buff = new byte[BUFFER_SIZE];
+
+
+            StringBuilder stdout = new StringBuilder();
+            StringBuilder stderr = new StringBuilder();
+
+            try (InputStream istream = miscApi.execStart(exec.id(), create(false))) {
+                int limit = istream.read(buff);
+                if (limit > 0) {
+                    byte type = buff[0];
+                    StringBuilder out = type == STDERR ? stderr : stdout;
+                    out.append(new String(buff, 8, limit - 8));
+                    while ((limit = istream.read(buff)) > 0) {
+                        out.append(new String(buff, 0, limit));
+                    }
+                }
+                ExecInspect insp = miscApi.execInspect(exec.id());
+                return new Execution(insp.exitCode(),
+                        stdout.toString(),
+                        stderr.toString());
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -104,11 +122,13 @@ public class SshOverHttp implements SshClient {
 
     private static class Execution {
         private final String stdout;
+        private final String stderr;
         private final int exitstatus;
 
-        public Execution(int exitstatus, String stdout) {
+        public Execution(int exitstatus, String stdout, String stderr) {
             this.exitstatus = exitstatus;
             this.stdout = stdout;
+            this.stderr = stderr;
         }
     }
 }
