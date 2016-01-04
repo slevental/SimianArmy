@@ -4,6 +4,9 @@ plugins {
     id 'com.github.hierynomus.license' version '0.11.0'
 }
 
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
 // Establish version and status
 ext.githubProjectName = 'SimianArmy'
 group = "com.netflix.${project.name}"
