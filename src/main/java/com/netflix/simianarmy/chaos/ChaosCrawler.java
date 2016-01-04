@@ -17,10 +17,10 @@
  */
 package com.netflix.simianarmy.chaos;
 
+import com.netflix.simianarmy.GroupType;
+
 import java.util.EnumSet;
 import java.util.List;
-
-import com.netflix.simianarmy.GroupType;
 
 /**
  * The Interface ChaosCrawler.
@@ -30,7 +30,7 @@ public interface ChaosCrawler {
     /**
      * The Interface InstanceGroup.
      */
-    public interface InstanceGroup {
+    interface InstanceGroup {
 
         /**
          * Type.

@@ -17,31 +17,24 @@
  */
 package com.netflix.simianarmy.basic;
 
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.netflix.simianarmy.*;
+import com.netflix.simianarmy.MonkeyRecorder.Event;
+import com.netflix.simianarmy.aws.STSAssumeRoleSessionCredentialsProvider;
+import com.netflix.simianarmy.aws.SimpleDBRecorder;
+import com.netflix.simianarmy.client.aws.AWSClient;
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-
-import com.netflix.simianarmy.CloudClient;
-import com.netflix.simianarmy.Monkey;
-import com.netflix.simianarmy.MonkeyCalendar;
-import com.netflix.simianarmy.MonkeyConfiguration;
-import com.netflix.simianarmy.MonkeyRecorder;
-import com.netflix.simianarmy.MonkeyRecorder.Event;
-import com.netflix.simianarmy.MonkeyScheduler;
-import com.netflix.simianarmy.aws.SimpleDBRecorder;
-import com.netflix.simianarmy.aws.STSAssumeRoleSessionCredentialsProvider;
-import com.netflix.simianarmy.client.aws.AWSClient;
 
 /**
  * The Class BasicSimianArmyContext.
@@ -51,11 +44,22 @@ public class BasicSimianArmyContext implements Monkey.Context {
     /** The Constant LOGGER. */
     private static final Logger LOGGER = LoggerFactory.getLogger(BasicSimianArmyContext.class);
 
-    /** The configuration properties. */
-    private final Properties properties = new Properties();
-
     /** The Constant MONKEY_THREADS. */
     private static final int MONKEY_THREADS = 1;
+
+    /** The config. */
+    protected BasicConfiguration config;
+
+    /** The client. */
+    protected AWSClient client;
+
+    /** The AWS credentials provider to be used. */
+    protected AWSCredentialsProvider awsCredentialsProvider = new DefaultAWSCredentialsProviderChain();
+
+    protected ClientConfiguration awsClientConfig = new ClientConfiguration();
+
+    /** The configuration properties. */
+    private final Properties properties = new Properties();
 
     /** The scheduler. */
     private MonkeyScheduler scheduler;
@@ -63,20 +67,11 @@ public class BasicSimianArmyContext implements Monkey.Context {
     /** The calendar. */
     private MonkeyCalendar calendar;
 
-    /** The config. */
-    private BasicConfiguration config;
-
-    /** The client. */
-    private AWSClient client;
-
     /** The recorder. */
     private MonkeyRecorder recorder;
 
     /** The reported events. */
     private final LinkedList<Event> eventReport;
-
-    /** The AWS credentials provider to be used. */
-    private AWSCredentialsProvider awsCredentialsProvider = new DefaultAWSCredentialsProviderChain();
 
     /** If configured, the ARN of Role to be assumed. */
     private final String assumeRoleArn;
@@ -88,8 +83,6 @@ public class BasicSimianArmyContext implements Monkey.Context {
     private final String secret;
 
     private final String region;
-
-    private ClientConfiguration awsClientConfig = new ClientConfiguration();
 
     /* If configured, the proxy to be used when making AWS API requests */
     private final String proxyHost;

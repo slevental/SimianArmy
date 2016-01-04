@@ -137,7 +137,7 @@ public class BasicChaosMonkey extends ChaosMonkey {
         ChaosInstance instance = new ChaosInstance(cloudClient, instanceId, sshConfig);
 
         List<ChaosType> applicable = Lists.newArrayList();
-        for (ChaosType chaosType : allChaosTypes) {
+        for (ChaosType chaosType :  allChaosTypes) {
             if (chaosType.isEnabled() && chaosType.canApply(instance)) {
                 applicable.add(chaosType);
             }
@@ -267,13 +267,13 @@ public class BasicChaosMonkey extends ChaosMonkey {
                         DEFAULT_MANDATORY_TERMINATION_PROBABILITY);
                 LOGGER.info("There has been no terminations for group {} [type {}] in the last {} days,"
                         + "setting the probability to {} for mandatory termination.",
-                        new Object[]{group.name(), group.type(), mandatoryTerminationWindowInDays, mandatoryProb});
+                        group.name(), group.type(), mandatoryTerminationWindowInDays, mandatoryProb);
                 return mandatoryProb;
             }
         }
         propName = "probability";
         double prob = getNumFromCfgOrDefault(group, propName, 1.0);
-        LOGGER.info("Group {} [type {}] enabled [prob {}]", new Object[]{group.name(), group.type(), prob});
+        LOGGER.info("Group {} [type {}] enabled [prob {}]", group.name(), group.type(), prob);
         return prob;
     }
 
@@ -297,8 +297,7 @@ public class BasicChaosMonkey extends ChaosMonkey {
      */
     protected long getLastOptInMilliseconds(InstanceGroup group) {
         String prop = NS + group.type() + "." + group.name() + ".lastOptInTimeInMilliseconds";
-        long lastOptInTimeInMilliseconds = (long) cfg.getNumOrElse(prop, -1);
-        return lastOptInTimeInMilliseconds;
+        return (long) cfg.getNumOrElse(prop, -1);
     }
 
     private boolean noTerminationInLastWindow(InstanceGroup group, int mandatoryTerminationWindowInDays) {
@@ -333,7 +332,7 @@ public class BasicChaosMonkey extends ChaosMonkey {
             String prop = NS + group.type() + "." + group.name() + ".enabled";
             String defaultProp = NS + group.type() + ".enabled";
             LOGGER.info("Group {} [type {}] disabled, set {}=true or {}=true",
-                    new Object[]{group.name(), group.type(), prop, defaultProp});
+                    group.name(), group.type(), prop, defaultProp);
             return false;
         }
     }
@@ -365,7 +364,7 @@ public class BasicChaosMonkey extends ChaosMonkey {
         String prop = NS + "leashed";
         if (cfg.getBoolOrElse(prop, true)) {
             LOGGER.info("leashed ChaosMonkey prevented from killing {} from group {} [{}], set {}=false",
-                    new Object[]{inst, group.name(), group.type(), prop});
+                    inst, group.name(), group.type(), prop);
             reportEventForSummary(EventTypes.CHAOS_TERMINATION_SKIPPED, group, inst);
             return null;
         } else {
@@ -376,7 +375,7 @@ public class BasicChaosMonkey extends ChaosMonkey {
                 ChaosInstance chaosInstance = new ChaosInstance(context().cloudClient(), inst, sshConfig);
                 chaosType.apply(chaosInstance);
                 LOGGER.info("Terminated {} from group {} [{}] with {}",
-                        new Object[]{inst, group.name(), group.type(), chaosType.getKey() });
+                        inst, group.name(), group.type(), chaosType.getKey());
                 reportEventForSummary(EventTypes.CHAOS_TERMINATION, group, inst);
                 return evt;
             } catch (NotFoundException e) {
@@ -404,7 +403,7 @@ public class BasicChaosMonkey extends ChaosMonkey {
         if (maxTerminationsPerDay <= MIN_MAX_TERMINATION_COUNT_PER_DAY) {
             String prop = String.format("%s%s.%s.%s", NS, group.type(), group.name(), propName);
             LOGGER.info("ChaosMonkey is configured to not allow any killing from group {} [{}] "
-                    + "with max daily count set as {}", new Object[]{group.name(), group.type(), prop});
+                    + "with max daily count set as {}", group.name(), group.type(), prop);
             return true;
         } else {
             int daysBack = 1;
@@ -420,7 +419,7 @@ public class BasicChaosMonkey extends ChaosMonkey {
             if (terminationCount >= maxCount) {
                 LOGGER.info("The count of terminations for group {} [{}] in the last {} days is {},"
                         + " equal or greater than the max count threshold {}",
-                        new Object[]{group.name(), group.type(), daysBack, terminationCount, maxCount});
+                        group.name(), group.type(), daysBack, terminationCount, maxCount);
                 return true;
             }
         }

@@ -17,12 +17,12 @@
  */
 package com.netflix.simianarmy.basic.chaos;
 
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-
 import com.netflix.simianarmy.GroupType;
 import com.netflix.simianarmy.chaos.ChaosCrawler.InstanceGroup;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * The Class BasicInstanceGroup.
@@ -68,7 +68,7 @@ public class BasicInstanceGroup implements InstanceGroup {
     }
 
     /** The list. */
-    private List<String> list = new LinkedList<String>();
+    protected List<String> list = new ArrayList<>();
 
     /** {@inheritDoc} */
     @Override

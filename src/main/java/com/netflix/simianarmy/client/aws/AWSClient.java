@@ -21,65 +21,31 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.autoscaling.AmazonAutoScalingClient;
-import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
-import com.amazonaws.services.autoscaling.model.AutoScalingInstanceDetails;
-import com.amazonaws.services.autoscaling.model.DeleteAutoScalingGroupRequest;
-import com.amazonaws.services.autoscaling.model.DeleteLaunchConfigurationRequest;
-import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest;
-import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult;
-import com.amazonaws.services.autoscaling.model.DescribeAutoScalingInstancesRequest;
-import com.amazonaws.services.autoscaling.model.DescribeAutoScalingInstancesResult;
-import com.amazonaws.services.autoscaling.model.DescribeLaunchConfigurationsRequest;
-import com.amazonaws.services.autoscaling.model.DescribeLaunchConfigurationsResult;
-import com.amazonaws.services.autoscaling.model.LaunchConfiguration;
+import com.amazonaws.services.autoscaling.model.*;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2Client;
-import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest;
-import com.amazonaws.services.ec2.model.CreateSecurityGroupResult;
-import com.amazonaws.services.ec2.model.CreateTagsRequest;
-import com.amazonaws.services.ec2.model.DeleteSnapshotRequest;
-import com.amazonaws.services.ec2.model.DeleteVolumeRequest;
-import com.amazonaws.services.ec2.model.DeregisterImageRequest;
-import com.amazonaws.services.ec2.model.DescribeImagesRequest;
-import com.amazonaws.services.ec2.model.DescribeImagesResult;
-import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
-import com.amazonaws.services.ec2.model.DescribeInstancesResult;
-import com.amazonaws.services.ec2.model.DescribeSecurityGroupsRequest;
-import com.amazonaws.services.ec2.model.DescribeSecurityGroupsResult;
-import com.amazonaws.services.ec2.model.DescribeSnapshotsRequest;
-import com.amazonaws.services.ec2.model.DescribeSnapshotsResult;
-import com.amazonaws.services.ec2.model.DescribeVolumesRequest;
-import com.amazonaws.services.ec2.model.DescribeVolumesResult;
-import com.amazonaws.services.ec2.model.DetachVolumeRequest;
-import com.amazonaws.services.ec2.model.EbsInstanceBlockDevice;
-import com.amazonaws.services.ec2.model.Image;
+import com.amazonaws.services.ec2.model.*;
+import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.InstanceBlockDeviceMapping;
-import com.amazonaws.services.ec2.model.ModifyInstanceAttributeRequest;
-import com.amazonaws.services.ec2.model.Reservation;
-import com.amazonaws.services.ec2.model.SecurityGroup;
-import com.amazonaws.services.ec2.model.Snapshot;
 import com.amazonaws.services.ec2.model.Tag;
-import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
-import com.amazonaws.services.ec2.model.Volume;
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancingClient;
-import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancerAttributesRequest;
-import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancerAttributesResult;
+import com.amazonaws.services.elasticloadbalancing.model.*;
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersRequest;
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersResult;
-import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerAttributes;
-import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription;
 import com.amazonaws.services.simpledb.AmazonSimpleDB;
 import com.amazonaws.services.simpledb.AmazonSimpleDBClient;
 import com.google.common.base.Objects;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.inject.Module;
 import com.netflix.simianarmy.CloudClient;
 import com.netflix.simianarmy.NotFoundException;
-
+import com.netflix.simianarmy.docker.DockerApiMetadata;
+import com.netflix.simianarmy.docker.DockerConnectionContext;
+import com.netflix.simianarmy.docker.SshOverHttpFactory;
 import org.apache.commons.lang.Validate;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
@@ -89,20 +55,17 @@ import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.domain.LoginCredentials;
-import org.jclouds.ec2.EC2ApiMetadata;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.ssh.SshClient;
 import org.jclouds.ssh.jsch.config.JschSshClientModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.netflix.simianarmy.client.aws.chaos.DockerTagsChaosCrawler.Type.DOCKER_CONTAINER;
+import static java.util.Arrays.asList;
 
 
 /**
@@ -110,30 +73,48 @@ import java.util.Set;
  */
 public class AWSClient implements CloudClient {
 
-    /** The Constant LOGGER. */
+    /**
+     * The Constant LOGGER.
+     */
     private static final Logger LOGGER = LoggerFactory.getLogger(AWSClient.class);
 
-    /** The region. */
-    private final String region;
+    /**
+     * Wildcard constant to use with tag filter
+     */
+    private static final List<String> ANY_TAG = ImmutableList.of("*");
 
-    /** The plain name for AWS account */
+    /**
+     * Instance filter's prefix which provides filtering by tag's name
+     */
+    private static final String TAG_PREFIX = "tag:";
+
+    /**
+     * The region.
+     */
+    private final String region;
+    /**
+     * The plain name for AWS account
+     */
     private final String accountName;
 
-    /** Maximum retry count for Simple DB */
+    /**
+     * Maximum retry count for Simple DB
+     */
     private static final int SIMPLE_DB_MAX_RETRY = 11;
 
     private final AWSCredentialsProvider awsCredentialsProvider;
 
     private final ClientConfiguration awsClientConfig;
 
+    private final DockerConnectionContext dockerCtx;
+
     private ComputeService jcloudsComputeService;
-    
-    
+
 
     /**
      * This constructor will let the AWS SDK obtain the credentials, which will
      * choose such in the following order:
-     *
+     * <p>
      * <ul>
      * <li>Environment Variables: {@code AWS_ACCESS_KEY_ID} and
      * {@code AWS_SECRET_KEY}</li>
@@ -142,13 +123,13 @@ public class AWSClient implements CloudClient {
      * <li>Instance Metadata Service, which provides the credentials associated
      * with the IAM role for the EC2 instance</li>
      * </ul>
-     *
+     * <p>
      * <p>
      * If credentials are provided explicitly, use
      * {@link com.netflix.simianarmy.basic.BasicSimianArmyContext#exportCredentials(String, String)}
      * which will set them as System properties used by each AWS SDK call.
      * </p>
-     *
+     * <p>
      * <p>
      * <b>Note:</b> Avoid storing credentials received dynamically via the
      * {@link com.amazonaws.auth.InstanceProfileCredentialsProvider} as these will be rotated and
@@ -156,8 +137,7 @@ public class AWSClient implements CloudClient {
      * {@link com.amazonaws.auth.InstanceProfileCredentialsProvider#getCredentials()} method.
      * </p>
      *
-     * @param region
-     *            the region
+     * @param region the region
      * @see com.amazonaws.auth.DefaultAWSCredentialsProviderChain
      * @see com.amazonaws.auth.InstanceProfileCredentialsProvider
      * @see com.netflix.simianarmy.basic.BasicSimianArmyContext#exportCredentials(String, String)
@@ -165,49 +145,65 @@ public class AWSClient implements CloudClient {
     public AWSClient(String region) {
         this.region = region;
         this.accountName = "Default";
+        this.dockerCtx = null;
         this.awsCredentialsProvider = null;
         this.awsClientConfig = null;
     }
 
     /**
      * The constructor allows you to provide your own AWS credentials provider.
-     * @param region
-     *          the region
-     * @param awsCredentialsProvider
-     *          the AWS credentials provider
+     *
+     * @param region                 the region
+     * @param awsCredentialsProvider the AWS credentials provider
      */
     public AWSClient(String region, AWSCredentialsProvider awsCredentialsProvider) {
         this.region = region;
         this.accountName = "Default";
         this.awsCredentialsProvider = awsCredentialsProvider;
+        this.dockerCtx = null;
         this.awsClientConfig = null;
     }
 
     /**
      * The constructor allows you to provide your own AWS client configuration.
-     * @param region
-     *          the region
-     * @param awsClientConfig
-     *          the AWS client configuration
+     *
+     * @param region          the region
+     * @param awsClientConfig the AWS client configuration
      */
     public AWSClient(String region, ClientConfiguration awsClientConfig) {
         this.region = region;
         this.accountName = "Default";
+        this.dockerCtx = null;
         this.awsCredentialsProvider = null;
         this.awsClientConfig = awsClientConfig;
     }
 
     /**
      * The constructor allows you to provide your own AWS credentials provider and client config.
-     * @param region
-     *          the region
-     * @param awsCredentialsProvider
-     *          the AWS credentials provider
-     * @param awsClientConfig
-     *          the AWS client configuration
+     *
+     * @param region                 the region
+     * @param awsCredentialsProvider the AWS credentials provider
+     * @param awsClientConfig        the AWS client configuration
      */
     public AWSClient(String region, AWSCredentialsProvider awsCredentialsProvider, ClientConfiguration awsClientConfig) {
         this.region = region;
+        this.accountName = "Default";
+        this.dockerCtx = null;
+        this.awsCredentialsProvider = awsCredentialsProvider;
+        this.awsClientConfig = awsClientConfig;
+    }
+
+    /**
+     * This construction allows to pass docker context to aws client, allowing to connect to Docker API in container
+     *
+     * @param region                 the region
+     * @param awsCredentialsProvider the AWS credentials provider
+     * @param awsClientConfig        the AWS client configuration
+     * @param dockerCtx              the Docker context (TLS configurations)
+     */
+    public AWSClient(String region, AWSCredentialsProvider awsCredentialsProvider, ClientConfiguration awsClientConfig, DockerConnectionContext dockerCtx) {
+        this.region = region;
+        this.dockerCtx = dockerCtx;
         this.accountName = "Default";
         this.awsCredentialsProvider = awsCredentialsProvider;
         this.awsClientConfig = awsClientConfig;
@@ -312,18 +308,18 @@ public class AWSClient implements CloudClient {
     public AmazonSimpleDB sdbClient() {
         AmazonSimpleDB client;
         ClientConfiguration cc = awsClientConfig;
-        
-        if (cc == null) { 
-          cc = new ClientConfiguration();
-          cc.setMaxErrorRetry(SIMPLE_DB_MAX_RETRY);
+
+        if (cc == null) {
+            cc = new ClientConfiguration();
+            cc.setMaxErrorRetry(SIMPLE_DB_MAX_RETRY);
         }
-        
+
         if (awsCredentialsProvider == null) {
             client = new AmazonSimpleDBClient(cc);
         } else {
             client = new AmazonSimpleDBClient(awsCredentialsProvider, cc);
         }
-        
+
         // us-east-1 has special naming
         // http://docs.amazonwebservices.com/general/latest/gr/rande.html#sdb_region
         if (region == null || region.equals("us-east-1")) {
@@ -333,7 +329,7 @@ public class AWSClient implements CloudClient {
         }
         return client;
     }
-    
+
     /**
      * Describe auto scaling groups.
      *
@@ -341,6 +337,39 @@ public class AWSClient implements CloudClient {
      */
     public List<AutoScalingGroup> describeAutoScalingGroups() {
         return describeAutoScalingGroups((String[]) null);
+    }
+
+    /**
+     * Returns list of instances which has following tags
+     *
+     * @param tags sequence of tags to check (case sensitive)
+     * @return {@link List<Instance>} of instances
+     */
+    public List<Instance> describeEc2WithTags(String... tags) {
+        if (tags == null || tags.length == 0) {
+            LOGGER.info(String.format("Getting all EC2 instances in region %s.", region));
+        } else {
+            LOGGER.info(String.format("Getting EC2 instances for %d tags in region %s.", tags.length, region));
+        }
+
+        List<Instance> result = new ArrayList<>();
+        AmazonEC2 ec2cli = ec2Client();
+        DescribeInstancesRequest req = new DescribeInstancesRequest();
+
+        if (tags != null && tags.length > 0) {
+            for (String tag : tags) {
+                req.withFilters(new Filter(TAG_PREFIX + tag, ANY_TAG));
+            }
+        }
+
+        DescribeInstancesResult res = ec2cli.describeInstances(req);
+
+        for (Reservation each : res.getReservations()) {
+            result.addAll(each.getInstances());
+        }
+
+        LOGGER.info(String.format("Got %d instances with required tags in region %s.", result.size(), region));
+        return result;
     }
 
     /**
@@ -356,12 +385,12 @@ public class AWSClient implements CloudClient {
             LOGGER.info(String.format("Getting auto-scaling groups for %d names in region %s.", names.length, region));
         }
 
-        List<AutoScalingGroup> asgs = new LinkedList<AutoScalingGroup>();
+        List<AutoScalingGroup> asgs = new ArrayList<>();
 
         AmazonAutoScalingClient asgClient = asgClient();
         DescribeAutoScalingGroupsRequest request = new DescribeAutoScalingGroupsRequest();
         if (names != null) {
-            request.setAutoScalingGroupNames(Arrays.asList(names));
+            request.setAutoScalingGroupNames(asList(names));
         }
         DescribeAutoScalingGroupsResult result = asgClient.describeAutoScalingGroups(request);
 
@@ -412,7 +441,7 @@ public class AWSClient implements CloudClient {
         LOGGER.info(String.format("Got attributes for ELB with name '%s' in region %s.", name, region));
         return attrs;
     }
-    
+
     /**
      * Describe a set of specific auto-scaling instances.
      *
@@ -427,12 +456,12 @@ public class AWSClient implements CloudClient {
                     instanceIds.length, region));
         }
 
-        List<AutoScalingInstanceDetails> instances = new LinkedList<AutoScalingInstanceDetails>();
+        List<AutoScalingInstanceDetails> instances = new ArrayList<>();
 
         AmazonAutoScalingClient asgClient = asgClient();
         DescribeAutoScalingInstancesRequest request = new DescribeAutoScalingInstancesRequest();
         if (instanceIds != null) {
-            request.setInstanceIds(Arrays.asList(instanceIds));
+            request.setInstanceIds(asList(instanceIds));
         }
         DescribeAutoScalingInstancesResult result = asgClient.describeAutoScalingInstances(request);
 
@@ -460,12 +489,12 @@ public class AWSClient implements CloudClient {
             LOGGER.info(String.format("Getting EC2 instances for %d ids in region %s.", instanceIds.length, region));
         }
 
-        List<Instance> instances = new LinkedList<Instance>();
+        List<Instance> instances = new ArrayList<>();
 
         AmazonEC2 ec2Client = ec2Client();
         DescribeInstancesRequest request = new DescribeInstancesRequest();
         if (instanceIds != null) {
-            request.withInstanceIds(Arrays.asList(instanceIds));
+            request.withInstanceIds(asList(instanceIds));
         }
         DescribeInstancesResult result = ec2Client.describeInstances(request);
         for (Reservation reservation : result.getReservations()) {
@@ -490,11 +519,11 @@ public class AWSClient implements CloudClient {
                     names.length, region));
         }
 
-        List<LaunchConfiguration> lcs = new LinkedList<LaunchConfiguration>();
+        List<LaunchConfiguration> lcs = new ArrayList<>();
 
         AmazonAutoScalingClient asgClient = asgClient();
         DescribeLaunchConfigurationsRequest request = new DescribeLaunchConfigurationsRequest()
-        .withLaunchConfigurationNames(names);
+                .withLaunchConfigurationNames(names);
         DescribeLaunchConfigurationsResult result = asgClient.describeLaunchConfigurations(request);
 
         lcs.addAll(result.getLaunchConfigurations());
@@ -508,18 +537,22 @@ public class AWSClient implements CloudClient {
         return lcs;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void deleteAutoScalingGroup(String asgName) {
         Validate.notEmpty(asgName);
         LOGGER.info(String.format("Deleting auto-scaling group with name %s in region %s.", asgName, region));
         AmazonAutoScalingClient asgClient = asgClient();
         DeleteAutoScalingGroupRequest request = new DeleteAutoScalingGroupRequest()
-        .withAutoScalingGroupName(asgName);
+                .withAutoScalingGroupName(asgName);
         asgClient.deleteAutoScalingGroup(request);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void deleteLaunchConfiguration(String launchConfigName) {
         Validate.notEmpty(launchConfigName);
@@ -531,7 +564,9 @@ public class AWSClient implements CloudClient {
         asgClient.deleteLaunchConfiguration(request);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void deleteImage(String imageId) {
         Validate.notEmpty(imageId);
@@ -542,7 +577,9 @@ public class AWSClient implements CloudClient {
         ec2Client.deregisterImage(request);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void deleteVolume(String volumeId) {
         Validate.notEmpty(volumeId);
@@ -552,7 +589,9 @@ public class AWSClient implements CloudClient {
         ec2Client.deleteVolume(request);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void deleteSnapshot(String snapshotId) {
         Validate.notEmpty(snapshotId);
@@ -562,13 +601,15 @@ public class AWSClient implements CloudClient {
         ec2Client.deleteSnapshot(request);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void terminateInstance(String instanceId) {
         Validate.notEmpty(instanceId);
         LOGGER.info(String.format("Terminating instance %s in region %s.", instanceId, region));
         try {
-            ec2Client().terminateInstances(new TerminateInstancesRequest(Arrays.asList(instanceId)));
+            ec2Client().terminateInstances(new TerminateInstancesRequest(asList(instanceId)));
         } catch (AmazonServiceException e) {
             if (e.getErrorCode().equals("InvalidInstanceID.NotFound")) {
                 throw new NotFoundException("AWS instance " + instanceId + " not found", e);
@@ -577,7 +618,9 @@ public class AWSClient implements CloudClient {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     public void setInstanceSecurityGroups(String instanceId, List<String> groupIds) {
         Validate.notEmpty(instanceId);
         LOGGER.info(String.format("Removing all security groups from instance %s in region %s.", instanceId, region));
@@ -610,7 +653,7 @@ public class AWSClient implements CloudClient {
         AmazonEC2 ec2Client = ec2Client();
         DescribeVolumesRequest request = new DescribeVolumesRequest();
         if (volumeIds != null) {
-            request.setVolumeIds(Arrays.asList(volumeIds));
+            request.setVolumeIds(asList(volumeIds));
         }
         DescribeVolumesResult result = ec2Client.describeVolumes(request);
         List<Volume> volumes = result.getVolumes();
@@ -637,7 +680,7 @@ public class AWSClient implements CloudClient {
         // Set the owner id to self to avoid getting snapshots from other accounts.
         request.withOwnerIds(Arrays.<String>asList("self"));
         if (snapshotIds != null) {
-            request.setSnapshotIds(Arrays.asList(snapshotIds));
+            request.setSnapshotIds(asList(snapshotIds));
         }
         DescribeSnapshotsResult result = ec2Client.describeSnapshots(request);
         List<Snapshot> snapshots = result.getSnapshots();
@@ -657,7 +700,7 @@ public class AWSClient implements CloudClient {
         for (Map.Entry<String, String> entry : keyValueMap.entrySet()) {
             tags.add(new Tag(entry.getKey(), entry.getValue()));
         }
-        CreateTagsRequest req = new CreateTagsRequest(Arrays.asList(resourceIds), tags);
+        CreateTagsRequest req = new CreateTagsRequest(asList(resourceIds), tags);
         ec2Client.createTags(req);
     }
 
@@ -677,7 +720,7 @@ public class AWSClient implements CloudClient {
         AmazonEC2 ec2Client = ec2Client();
         DescribeImagesRequest request = new DescribeImagesRequest();
         if (imageIds != null) {
-            request.setImageIds(Arrays.asList(imageIds));
+            request.setImageIds(asList(imageIds));
         }
         DescribeImagesResult result = ec2Client.describeImages(request);
         List<Image> images = result.getImages();
@@ -774,7 +817,9 @@ public class AWSClient implements CloudClient {
         return securityGroups;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     public String createSecurityGroup(String instanceId, String name, String description) {
         String vpcId = getVpcId(instanceId);
 
@@ -807,10 +852,16 @@ public class AWSClient implements CloudClient {
         return instance;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     *
+     * @param instanceId
+     */
     @Override
-    public synchronized ComputeService getJcloudsComputeService() {
-        if (jcloudsComputeService == null) {
+    public synchronized ComputeService getJcloudsComputeService(String instanceId) {
+        if (DOCKER_CONTAINER.isContainerId(instanceId)) { // composite id
+            return getDockerJCloudsComputeService(DOCKER_CONTAINER.getInstanceId(instanceId));
+        } else if (jcloudsComputeService == null) {
             String username = awsCredentialsProvider.getCredentials().getAWSAccessKeyId();
             String password = awsCredentialsProvider.getCredentials().getAWSSecretKey();
             ComputeServiceContext jcloudsContext = ContextBuilder.newBuilder("aws-ec2").credentials(username, password)
@@ -823,7 +874,9 @@ public class AWSClient implements CloudClient {
         return jcloudsComputeService;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getJcloudsId(String instanceId) {
         return this.region + "/" + instanceId;
@@ -831,22 +884,70 @@ public class AWSClient implements CloudClient {
 
     @Override
     public SshClient connectSsh(String instanceId, LoginCredentials credentials) {
-        ComputeService computeService = getJcloudsComputeService();
+        ComputeService computeService = getJcloudsComputeService(instanceId);
+        NodeMetadata node = getJcloudsNode(computeService, instanceId);
 
-        String jcloudsId = getJcloudsId(instanceId);
-        NodeMetadata node = getJcloudsNode(computeService, jcloudsId);
+        if (DOCKER_CONTAINER.isContainerId(instanceId)) {
+            credentials = LoginCredentials.builder()
+                    .user(DOCKER_CONTAINER.getContainerId(instanceId))
+                    .credential("")
+                    .build();
+        }
 
         node = NodeMetadataBuilder.fromNodeMetadata(node).credentials(credentials).build();
-
         Utils utils = computeService.getContext().utils();
         SshClient ssh = utils.sshForNode().apply(node);
 
         ssh.connect();
-
         return ssh;
     }
 
-    private NodeMetadata getJcloudsNode(ComputeService computeService, String jcloudsId) {
+    public List<NodeMetadata> listContainersAt(String instance) {
+        ComputeService service = getDockerJCloudsComputeService(instance);
+        Set<? extends ComputeMetadata> nodes = service.listNodes();
+        return nodes.stream().map(node -> service.getNodeMetadata(node.getId())).collect(Collectors.toList());
+    }
+
+    private ComputeService getDockerJCloudsComputeService(String instanceId) {
+        if (dockerCtx == null)
+            throw new IllegalStateException("Should be called only under DockerSimianArmyContext, configuration wasn't initialized");
+
+        Instance inst = describeInstance(instanceId);
+
+        if (inst == null)
+            throw new NotFoundException("No instance found with ID=" + instanceId);
+
+        String addr = dockerCtx.isUsePublic()
+                ? inst.getPublicIpAddress()
+                : inst.getPrivateIpAddress();
+
+        if (addr == null) {
+            throw new NotFoundException("No "
+                    + (dockerCtx.isUsePublic() ? "public " : "private ")
+                    + "address available for instance: "
+                    + instanceId);
+        }
+
+        DockerApiMetadata meta = new DockerApiMetadata()
+                .toBuilder()
+                .version(dockerCtx.getVersion())
+                .url(String.format("%s://%s:%d", dockerCtx.getProtocol(), addr, dockerCtx.getPort()))
+                .cacert(dockerCtx.getTlsPath())
+                .build();
+
+        //todo: cache it for each instance
+        return new ContextBuilder(meta)
+                .credentials(dockerCtx.getTlsCertPath(), dockerCtx.getTlsKeyPath())
+                .modules(ImmutableSet.of(new SshOverHttpFactory.Module()))
+                .build(ComputeServiceContext.class)
+                .getComputeService();
+    }
+
+    private NodeMetadata getJcloudsNode(ComputeService computeService, String instanceId) {
+        if (DOCKER_CONTAINER.isContainerId(instanceId))
+            return computeService.getNodeMetadata(DOCKER_CONTAINER.getContainerId(instanceId));
+
+        instanceId = this.region + "/" + instanceId;
         // Work around a jclouds bug / documentation issue...
         // TODO: Figure out what's broken, and eliminate this function
 
@@ -855,23 +956,25 @@ public class AWSClient implements CloudClient {
 
         Set<NodeMetadata> nodes = Sets.newHashSet();
         for (ComputeMetadata n : computeService.listNodes()) {
-            if (jcloudsId.equals(n.getId())) {
+            if (instanceId.equals(n.getId())) {
                 nodes.add((NodeMetadata) n);
             }
         }
 
         if (nodes.isEmpty()) {
-            LOGGER.warn("Unable to find jclouds node: {}", jcloudsId);
+            LOGGER.warn("Unable to find jclouds node: {}", instanceId);
             for (ComputeMetadata n : computeService.listNodes()) {
                 LOGGER.info("Did find node: {}", n);
             }
-            throw new IllegalStateException("Unable to find node using jclouds: " + jcloudsId);
+            throw new IllegalStateException("Unable to find node using jclouds: " + instanceId);
         }
         NodeMetadata node = Iterables.getOnlyElement(nodes);
         return node;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String findSecurityGroup(String instanceId, String groupName) {
         String vpcId = getVpcId(instanceId);
@@ -895,8 +998,7 @@ public class AWSClient implements CloudClient {
     /**
      * Gets the VPC id for the given instance.
      *
-     * @param instanceId
-     *            instance we're checking
+     * @param instanceId instance we're checking
      * @return vpc id, or null if not a vpc instance
      */
     String getVpcId(String instanceId) {
@@ -910,7 +1012,9 @@ public class AWSClient implements CloudClient {
         return vpcId;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean canChangeInstanceSecurityGroups(String instanceId) {
         return null != getVpcId(instanceId);

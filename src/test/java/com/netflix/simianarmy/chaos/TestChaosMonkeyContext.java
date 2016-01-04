@@ -18,27 +18,6 @@
 // CHECKSTYLE IGNORE Javadoc
 package com.netflix.simianarmy.chaos;
 
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import org.jclouds.compute.ComputeService;
-import org.jclouds.compute.domain.ExecChannel;
-import org.jclouds.compute.domain.ExecResponse;
-import org.jclouds.domain.LoginCredentials;
-import org.jclouds.io.Payload;
-import org.jclouds.ssh.SshClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -49,6 +28,17 @@ import com.netflix.simianarmy.TestMonkeyContext;
 import com.netflix.simianarmy.basic.BasicConfiguration;
 import com.netflix.simianarmy.basic.chaos.BasicChaosInstanceSelector;
 import com.netflix.simianarmy.chaos.ChaosCrawler.InstanceGroup;
+import org.jclouds.compute.ComputeService;
+import org.jclouds.compute.domain.ExecChannel;
+import org.jclouds.compute.domain.ExecResponse;
+import org.jclouds.domain.LoginCredentials;
+import org.jclouds.io.Payload;
+import org.jclouds.ssh.SshClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.InputStream;
+import java.util.*;
 
 public class TestChaosMonkeyContext extends TestMonkeyContext implements ChaosMonkey.Context {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestChaosMonkeyContext.class);
@@ -262,7 +252,7 @@ public class TestChaosMonkeyContext extends TestMonkeyContext implements ChaosMo
             }
 
             @Override
-            public ComputeService getJcloudsComputeService() {
+            public ComputeService getJcloudsComputeService(String instanceId) {
                 throw new UnsupportedOperationException();
             }
 

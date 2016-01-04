@@ -1,15 +1,9 @@
 package com.netflix.simianarmy.docker;
 
-import static java.io.File.pathSeparator;
-import static java.io.File.separator;
-import static org.jclouds.compute.config.ComputeServiceProperties.TEMPLATE;
-import static org.jclouds.reflect.Reflection2.typeToken;
-
-import java.net.URI;
-import java.util.Properties;
-
+import com.google.auto.service.AutoService;
 import com.google.common.base.Function;
-import com.google.inject.AbstractModule;
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import org.jclouds.Constants;
 import org.jclouds.apis.ApiMetadata;
@@ -17,7 +11,8 @@ import org.jclouds.compute.ComputeServiceAdapter;
 import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.compute.config.ComputeServiceAdapterContextModule;
 import org.jclouds.compute.config.ComputeServiceProperties;
-import org.jclouds.compute.domain.*;
+import org.jclouds.compute.domain.Hardware;
+import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.docker.DockerApi;
 import org.jclouds.docker.compute.config.DockerComputeServiceContextModule;
@@ -35,9 +30,12 @@ import org.jclouds.domain.Location;
 import org.jclouds.functions.IdentityFunction;
 import org.jclouds.rest.internal.BaseHttpApiMetadata;
 
-import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableSet;
-import com.google.inject.Module;
+import java.io.File;
+import java.net.URI;
+import java.util.Properties;
+
+import static org.jclouds.compute.config.ComputeServiceProperties.TEMPLATE;
+import static org.jclouds.reflect.Reflection2.typeToken;
 
 /**
  * Overriding standard {@link org.jclouds.docker.DockerApiMetadata} due to issues
@@ -75,10 +73,10 @@ public class DockerApiMetadata extends BaseHttpApiMetadata<DockerApi> {
 
     public static class Builder extends BaseHttpApiMetadata.Builder<DockerApi, Builder> {
         public static final URI DOCUMENTATION = URI.create("https://docs.docker.com/reference/api/docker_remote_api/");
-        public static final String VERSION = "1.21";
 
-        private String certPath = "./";
+        private String cacertPath = "./";
         private String url;
+        private String verison = "1.21";
 
         protected Builder() {
             super(DockerApi.class);
@@ -91,13 +89,13 @@ public class DockerApiMetadata extends BaseHttpApiMetadata<DockerApi> {
         }
 
         private Builder initialize(Properties props) {
-            props.put(DOCKER_CA_CERT_PATH, certPath + "ca.pem");
+            props.put(DOCKER_CA_CERT_PATH, new File(cacertPath, "ca.pem").getAbsolutePath());
             id("docker")
                     .name("Docker API")
-                    .identityName(certPath + "server.pem")
-                    .credentialName(certPath + "server-key.pem")
+                    .identityName(new File(cacertPath, "cert.pem").getAbsolutePath())
+                    .credentialName(new File(cacertPath, "key.pem").getAbsolutePath())
                     .documentation(DOCUMENTATION)
-                    .version(VERSION)
+                    .version(verison)
                     .defaultEndpoint(url)
                     .defaultProperties(props)
                     .view(typeToken(ComputeServiceContext.class))
@@ -108,8 +106,15 @@ public class DockerApiMetadata extends BaseHttpApiMetadata<DockerApi> {
             return this;
         }
 
-        public Builder cert(String path) {
-            this.certPath = path.endsWith(separator) ? path : path + separator;
+
+        public Builder version(String version) {
+            super.version(version);
+            this.verison = version;
+            return this;
+        }
+
+        public Builder cacert(String path) {
+            this.cacertPath = path;
             return this;
         }
 
@@ -142,16 +147,22 @@ public class DockerApiMetadata extends BaseHttpApiMetadata<DockerApi> {
              * Using customized Meta mapper - which is passing fake SSH credentials and PORT
              * to allow SSH factory call, otherwise it will be failed even if SshFactory is implemented
              */
-            bind(new TypeLiteral<Function<Container, NodeMetadata>>() {}).to(MetaDataMapper.class);
+            bind(new TypeLiteral<Function<Container, NodeMetadata>>() {
+            }).to(MetaDataMapper.class);
 
             /**
              * Left without changes as here {@link DockerComputeServiceContextModule}
              */
-            bind(new TypeLiteral<ComputeServiceAdapter<Container, Hardware, Image, Location>>() {}).to(DockerComputeServiceAdapter.class);
-            bind(new TypeLiteral<Function<Image, org.jclouds.compute.domain.Image>>() {}).to(ImageToImage.class);
-            bind(new TypeLiteral<Function<Hardware, Hardware>>() {}).to(Class.class.cast(IdentityFunction.class));
-            bind(new TypeLiteral<Function<Location, Location>>() {}).to(Class.class.cast(IdentityFunction.class));
-            bind(new TypeLiteral<Function<State, NodeMetadata.Status>>() {}).to(StateToStatus.class);
+            bind(new TypeLiteral<ComputeServiceAdapter<Container, Hardware, Image, Location>>() {
+            }).to(DockerComputeServiceAdapter.class);
+            bind(new TypeLiteral<Function<Image, org.jclouds.compute.domain.Image>>() {
+            }).to(ImageToImage.class);
+            bind(new TypeLiteral<Function<Hardware, Hardware>>() {
+            }).to(Class.class.cast(IdentityFunction.class));
+            bind(new TypeLiteral<Function<Location, Location>>() {
+            }).to(Class.class.cast(IdentityFunction.class));
+            bind(new TypeLiteral<Function<State, NodeMetadata.Status>>() {
+            }).to(StateToStatus.class);
             bind(TemplateOptions.class).to(DockerTemplateOptions.class);
             install(new LoginPortLookupModule());
         }
