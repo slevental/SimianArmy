@@ -1,29 +1,27 @@
 sudo: required
-
 services:
   - docker
-
 language: java
 
 cache:
   directories:
-  - $HOME/.gradle/wrapper
-  - $HOME/.gradle/native
-  - $HOME/.gradle/daemon
-  - $HOME/.gradle/caches/jars-1
-  - $HOME/.gradle/caches/2.2
+    - ~/.gradle/wrapper
+    - ~/.gradle/native
+    - ~/.gradle/daemon
+    - ~/.gradle/caches/jars-1
+    - ~/.gradle/caches/2.2
 
 env:
   global:
-  - secure: JO5K7mNole2U8VdN4FsjAxYshQW5z1yUzNBXRgSg5djh8sV4KMsOf5H1HvVK2Bi43mz2/rq8G73mGZL/J69PxvuwsfBvEUjCkkfOM5xMGk8zwlVX+YiRIQlCCmecM+bmO8sxtVVGntr19k+Ar++YlZUQ3quKgDYHwxLBr6VUsOHfewWXTC+yqNLc9TwZrPeqFBIK+tTQhbSOaQpB5QUnL1awsrOQHAPxGuWkzussI/1Es3v8kfQKceeWJ+1QhPAUPJRUc8rdW0JYYAIn0HSzZl7gNdU8q2T905BYi+uSuvdn6DPgW+1emWWv60My2j2X2WehZ2/vTl+MH52YMlmt8gnFKgArq687huEISOgwKhiWprOIiuQAbD6lFarg/Y9rZO87m+kpVil+G/dV35fcWQmFQc8Gep8u6IlG0+HmRwrhhH3vkKoOlbPrROF4zrhQfYtC3KgBxpXOJFwCH0XmPEs0kL8rn1vH2gpMArOXoT3s170NUw9BNswiizknNEXh4NCl52XuRZZZuMFvT2DlLDBGVlkKTCuH5U6TPTHtL0YJIf0y0S7qtMEPP+5tGpDeDg5hTJZ3CcPwrdZ2v3WvLWh0Aa/jM3XpGS2OP5kr3k2/HWwwevVy48Z9f3sIL1tesqnjvB4MLBzvQAEA1U4vCAiJ5qdRZmmNSNTj+J40hvk=
-  - secure: T0FvFYYBAj6F0rXygHwg+awGjFu58uexFZx5W7DWEz00HVx4rCqzAe2Hr0Z7TG+Nyj21tfwtLMLDl8CLkwXPKjJSFV6IjLe3II4+v30y35IgzYk+MhvK4QilgwYrx1rK0V1hw22SnNluOGZ4d+lWIDsd/Ql7zOYqMOF6g0uTypVm2A+fFfXtqyijCQGG5V5qKGl1XKGrhocaYwgGp2nMXUguftv4U3tOp2dCsSh5kQ/54SLC+ZBS6IUV5s65556M9Zkl9i8j7VpHIl9E3OVEBxKhrEO25iGdTn9ie/yt+nXu25Qm4I/4CvteisMQOBg1OG6pi5RynNnBkC2sMFx449l19+hm0noTUuwvZ7td8oq/R2hnNJJFgOQ8c7Z2UlvZzYOIE3ym333bLJIRPN39K7uXl+FE+AzoGsQSJ0tY7RVJmnWHiFZurkNhTGBBoarXq9xvEHFBFD1YdOgEgS8CTOiO3QpKTRx57dVrOsbkG65vhiovrbjUgJs6sjRW9ol9o6jGOYrR2sZ/nz7vmsEGzDIgO4WyGmSIbQxwGN7qPMd0rNQN6kjCd2dhnG4mSjEIxynxEd2hkI0GOTtVMYPRq8oixs0fW8T/vBQ0ll9KSJrfybvfkopbe7FM4XQRtlNnyjjB/D2m8jLbWEMByATFcZp8KUZK+TMxoztCw4TyEws=
-  - secure: CHZFUWeo+h1rBhXwuNPEetSF+2DwHpLdAYZ2udzCSVDjfPyAybWV25bs5zk3dIugDJ0ZazxZmTLUD0X6mV5rh+G+9rC1BxgbY03XiV5nKrMOGSpTQeEBnU0gFPTDt3+qLyfKdNZsqNIrVLOkRbDrPw/6NdGbk8ykJ0bMf91lMYKkgphdkWnZ5p9lWqzb+pL0IfKYkSeN0RX8x9edyo+MaodmSAfWwifBB3k8z15xvmP/O01nYJ6zq0MM3LMo1nQCHWdp3KRScLmnnn8PnWmUV8gVs0fN8vzVAH7v/Rmuux0RkUYDmeMCLtPVSs/grgMeP+LjyVWacPOLlQVVo3HybbLLI8TYSPDOagJUg3O9ZpMaFsV0rF30+KNvOMKDVXelYkxoOkHE1aFhXi/CIhl+/tiVmaJCx8XzAHAG9GVzDCskSJhHR+CXI9CD4VAoNkouncm+CzQS/9JVcsg6avBlJNlxXSgOf30wDWpfajuWytTi+JywoA63H/UkG36QjXeevg4l3BtAC+7bgMiqjbbdNMwvGO2A/IzVUxxKw1hzsAcVasYpTwLfShVG2pTZXQ+CXY/eWNriNgKppyJwwSL2YBSjFZ8Qk+IJIFNOxHZKJgK8MbI2w5k/g939VAWzNWk2tcYHIBjR9HnwU8xWdK7uB80rjyWEKMGlq+6Zdo0q4O4=
-  - COMMIT=${TRAVIS_COMMIT::8}
+    - secure: JO5K7mNole2U8VdN4FsjAxYshQW5z1yUzNBXRgSg5djh8sV4KMsOf5H1HvVK2Bi43mz2/rq8G73mGZL/J69PxvuwsfBvEUjCkkfOM5xMGk8zwlVX+YiRIQlCCmecM+bmO8sxtVVGntr19k+Ar++YlZUQ3quKgDYHwxLBr6VUsOHfewWXTC+yqNLc9TwZrPeqFBIK+tTQhbSOaQpB5QUnL1awsrOQHAPxGuWkzussI/1Es3v8kfQKceeWJ+1QhPAUPJRUc8rdW0JYYAIn0HSzZl7gNdU8q2T905BYi+uSuvdn6DPgW+1emWWv60My2j2X2WehZ2/vTl+MH52YMlmt8gnFKgArq687huEISOgwKhiWprOIiuQAbD6lFarg/Y9rZO87m+kpVil+G/dV35fcWQmFQc8Gep8u6IlG0+HmRwrhhH3vkKoOlbPrROF4zrhQfYtC3KgBxpXOJFwCH0XmPEs0kL8rn1vH2gpMArOXoT3s170NUw9BNswiizknNEXh4NCl52XuRZZZuMFvT2DlLDBGVlkKTCuH5U6TPTHtL0YJIf0y0S7qtMEPP+5tGpDeDg5hTJZ3CcPwrdZ2v3WvLWh0Aa/jM3XpGS2OP5kr3k2/HWwwevVy48Z9f3sIL1tesqnjvB4MLBzvQAEA1U4vCAiJ5qdRZmmNSNTj+J40hvk=
+    - secure: T0FvFYYBAj6F0rXygHwg+awGjFu58uexFZx5W7DWEz00HVx4rCqzAe2Hr0Z7TG+Nyj21tfwtLMLDl8CLkwXPKjJSFV6IjLe3II4+v30y35IgzYk+MhvK4QilgwYrx1rK0V1hw22SnNluOGZ4d+lWIDsd/Ql7zOYqMOF6g0uTypVm2A+fFfXtqyijCQGG5V5qKGl1XKGrhocaYwgGp2nMXUguftv4U3tOp2dCsSh5kQ/54SLC+ZBS6IUV5s65556M9Zkl9i8j7VpHIl9E3OVEBxKhrEO25iGdTn9ie/yt+nXu25Qm4I/4CvteisMQOBg1OG6pi5RynNnBkC2sMFx449l19+hm0noTUuwvZ7td8oq/R2hnNJJFgOQ8c7Z2UlvZzYOIE3ym333bLJIRPN39K7uXl+FE+AzoGsQSJ0tY7RVJmnWHiFZurkNhTGBBoarXq9xvEHFBFD1YdOgEgS8CTOiO3QpKTRx57dVrOsbkG65vhiovrbjUgJs6sjRW9ol9o6jGOYrR2sZ/nz7vmsEGzDIgO4WyGmSIbQxwGN7qPMd0rNQN6kjCd2dhnG4mSjEIxynxEd2hkI0GOTtVMYPRq8oixs0fW8T/vBQ0ll9KSJrfybvfkopbe7FM4XQRtlNnyjjB/D2m8jLbWEMByATFcZp8KUZK+TMxoztCw4TyEws=
+    - secure: PzQWRSACE9P3BieOFJOuaxw843/UmFjUaPIfHNP3XuoEmWYLRaMKR0mm5uIjmzJ4/oxrHSbGdEedVih8a1zEG6mEUemE5G0KClT6gJqJCUKXr5n4wT+2fHtgA8I4X2Rz6HRtv43qKefuYHIrq6rbnEhifJBweSsPktPKJU88aXeDcuEYCdtkxiHhlOAXOuTiXr/voPOnISZLaoBDe99ZJuybcfn5Pv5eFyhV3HHjp5ehVj2UQ+iBBG3ocWsos5SbT8BnO5mvvxdTEcuETgAXf88R0kAOp2ZLBT8oMo4f9/CcKJJy5geND76xOX4fPMdwx+LfKlG4QaTtDPLEUDE/ZKHPAMNHgUyEccHNeZNW6b2T0Gup6u3E4Rv8H+DZI1327K9rBDLWlquRNCUgx5vf2s3Qqnqx9ZHCesVP9DxjCJ/YU2odUiga6OaPY+qDf5wvWjBlygRzyP3OZLMo14Z9UQ50NynuvzVmnIdB16u69nRcFVyh6QMnLcdpqUWxfHma58wUQoXYjqi2HdCQaNodEN4AXCyXmIdZhUiCaqkRaKjncHMLwgiACUz72RmeUNuEej8iaMXfGacwIcOy1PPdfFjcMcoRTmH8E7oU8wCuqhy165GlUBNPeRJxlGlIF7PqR3vDbNp/KcnSw1xNle5Q1oNl18gzmc/C0w00H1r+95U=
+    - COMMIT=${TRAVIS_COMMIT::8}
 
 after_success:
   - docker login -e $DOCKER_EMAIL -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-  - export REPO=grammarly/simianarmy
-  - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
+  - export REPO=grammarly/simianarm
+  - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
   - docker build -f Dockerfile -t $REPO:$COMMIT .
   - docker tag $REPO:$COMMIT $REPO:$TAG
   - docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
