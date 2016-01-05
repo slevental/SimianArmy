@@ -68,7 +68,7 @@ public class TagsChaosCrawler implements ChaosCrawler {
      * {@inheritDoc}
      */
     @Override
-    public EnumSet<?> groupTypes() {
+    public EnumSet groupTypes() {
         return EnumSet.of(Type.TAGGED_EC2);
     }
 

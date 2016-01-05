@@ -951,7 +951,7 @@ public class AWSClient implements CloudClient {
         // Work around a jclouds bug / documentation issue...
         // TODO: Figure out what's broken, and eliminate this function
 
-        
+
         // This should work (?):
         // Set<NodeMetadata> nodes = computeService.listNodesByIds(Collections.singletonList(jcloudsId));
 

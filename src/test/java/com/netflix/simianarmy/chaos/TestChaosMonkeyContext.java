@@ -131,7 +131,7 @@ public class TestChaosMonkeyContext extends TestMonkeyContext implements ChaosMo
     public ChaosCrawler chaosCrawler() {
         return new ChaosCrawler() {
             @Override
-            public EnumSet<?> groupTypes() {
+            public EnumSet groupTypes() {
                 return EnumSet.allOf(CrawlerTypes.class);
             }
 
