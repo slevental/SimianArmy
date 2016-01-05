@@ -11,7 +11,7 @@ cache:
   - $HOME/.gradle/native
   - $HOME/.gradle/daemon
   - $HOME/.gradle/caches/jars-1
-  - $HOME/.gradle/caches/2.3
+  - $HOME/.gradle/caches/2.2
 
 env:
   global:
