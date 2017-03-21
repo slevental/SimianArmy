@@ -16,7 +16,7 @@ Please see the [wiki](https://github.com/Netflix/SimianArmy/wiki).
 
 ## SUPPORT
 
-[Simian Army Google group](http://groups.google.com/group/simianarmy-users).
+If you have any questions please email me at stanislav [dot] levental @ gmail [dot] com
 
 ## LICENSE
 
